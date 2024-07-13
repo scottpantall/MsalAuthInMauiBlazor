@@ -147,6 +147,11 @@ using Microsoft.Identity.Web;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+
+// ScottNote: This needs DownstreamApi things because this API is calling the MicrosoftGraph API
+// https://learn.microsoft.com/en-us/entra/identity-platform/scenario-web-api-call-api-app-registration
+
+//I don't need to use that right now.
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"))
         .EnableTokenAcquisitionToCallDownstreamApi()
@@ -259,6 +264,8 @@ Replace the contents of the *appsettings.json* file with this:
 
 If you don't already have an Azure Active Directory B2C tenant, you must create one.
 
+ScottNote: An Azure Active Directory B2C tenant is similar to a
+
 For social authentication, we will need to create a new tenant, so we can take advantage of the Azure's **Identity Providers** to allow social network authentication support, including **Twitter**, **Google**, **Facebook**, **Apple**, and others. If you already have a tenant with Identity Provider support, you can skip over this section.
 
 Go to [Azure](https://portal.azure.com/), and select your subscription.
@@ -305,6 +312,7 @@ Notice a new **Application (client) ID**, and **Directory (tenant) ID**, will be
 Go ahead, and copy those new values, and replace the ones in the *appsettings.json* file of our **SecureWebApi** project.
 
 Go to **Authentication**, click on **+ Add a platform**, then on Web.
+ScottNote: Why are we using Web if we're building a Maui app?! Oh this is still in the API things.
 
 ![image-20220920152625434](md-images/image-20220920152625434.png)  
 
@@ -441,12 +449,14 @@ If you append **/weatherforecast** to the URL, you will see that indeed, the app
 ![Unauthorized 401](md-images/c7766a80e5475bc3e231cf4266fb3b312148d63a5d55a0e3cf4f97860269d569.png)  
 
 #### Setup Microsoft Identity Provider
+ScottNote: I don't need to do this right now since I'm using internal users only
 
 Go back to **Azure**, go to your **Azure AD B2C** tenant, click on `Identity providers`, then on **Microsoft Account**, and enter **Microsoft** for the name, and paste the **Client ID** and **Client Secret**, we saved in a previous step.
 
 ![image-20220920160553956](md-images/image-20220920160553956.png)  
 
 #### Create a User Flow
+ScottNote: I don't need to do this right now since I'm using internal users only. Also I'd use Entra instead of Azure AD
 
 Now we need to create a **Sign up and sign in** user flow. Go to **User flows**, and click on **+ New user flow**.
 
@@ -503,6 +513,7 @@ install-package Microsoft.Identity.Client
 ![Default project](md-images/ac9effd6e0b9a8196f6cd0c142e33870c476c43f697dc92c79bfc0444d6721f1.png)  
 
 ### Add appsettings.json Support
+ScottNote: Do this!
 
 Add the following NuGet packages:
 
@@ -523,16 +534,13 @@ Change the Build Action to Embedded resource.
 ![Add a appsettings.json File](md-images/2848c1ab2f92466b1997aa0639be7e5708e9d839709a82fedcdd0e7f35ed5592.png)  
 
 Add the following code to the *appsettings.json*:
+ScottNote: I removed some unnecessary things from Carl's example: I think all I need for the scope is the name of the scope, not the whole URL thingy.
 
 ```json
 {
   "Settings": {
     "ClientId": "{REPLACE-WITH-YOUR-CLIENT-ID}",
-    "Tenant": "{REPLACE-WITH-YOUR-TENANT-NAME}.onmicrosoft.com",
     "TenantId": "{REPLACE-WITH-YOUR-TENANT-ID}",
-    "InstanceUrl": "https://REPLACE-WITH-YOUR-TENANT-NAME.b2clogin.com",
-    "PolicySignUpSignIn": "b2c_1_social_susi",
-    "Authority": "https://REPLACE-WITH-YOUR-TENANT-NAME.b2clogin.com/tfp/REPLACE-WITH-YOUR-TENANT-NAME.onmicrosoft.com/b2c_1_social_susi",
     "Scopes": [
       { "Value": "https://REPLACE-WITH-YOUR-TENANT-NAME.onmicrosoft.com/REPLACE-WITH-YOUR-CLIENT-ID/access_as_user" }
     ],
@@ -573,6 +581,7 @@ namespace MsalAuthInMauiBlazor
 ```
 
 #### NestedSettings.cs
+ScottNote: This seems silly. Why not just do a string[] in the main settings?
 
 ```csharp
 namespace MsalAuthInMauiBlazor
@@ -663,11 +672,12 @@ namespace MsalAuthInMauiBlazor.MsalClient
             Scopes = _settings.Scopes.ToStringArray();
 
             // Create PCA once. Make sure that all the config parameters below are passed
+            // ScottNote: I updated this from Carl's example cuz I don't need B2C stuff for this work.
             PCA = PublicClientApplicationBuilder
-                                        .Create(_settings?.ClientId)
-                                        .WithB2CAuthority(_settings?.Authority)
-                                        .WithRedirectUri("http://localhost")
-                                        .Build();
+                                            .Create(_clientId)
+                                            .WithAuthority(AzureCloudInstance.AzurePublic, _tenantId)
+                                            .WithRedirectUri("http://localhost")
+                                            .Build();
         }
 
         /// <summary>
@@ -680,6 +690,7 @@ namespace MsalAuthInMauiBlazor.MsalClient
             if (PCA == null)
                 return null;
 
+            // ScottNote: I don't think I need to get an account since I'm not using B2C? We'll see.
             var accounts = await PCA.GetAccountsAsync(_settings?.PolicySignUpSignIn).ConfigureAwait(false);
             var account = accounts.FirstOrDefault();
 
@@ -702,6 +713,8 @@ namespace MsalAuthInMauiBlazor.MsalClient
             var accounts = await PCA.GetAccountsAsync(_settings?.PolicySignUpSignIn).ConfigureAwait(false); ;
             var account = accounts.FirstOrDefault();
 
+            // ScottNote: What are all these extension methods anyway? We can likely just use...
+            // await app.AcquireTokenInteractive(scopes).ExecuteAsync();
             return await PCA.AcquireTokenInteractive(scopes)
                                     .WithB2CAuthority(_settings?.Authority)
                                     .WithAccount(account)
@@ -732,6 +745,7 @@ namespace MsalAuthInMauiBlazor.MsalClient
 ```
 
 #### PlatformConfig.cs
+ScottNote: Do I NEED this? I don't feel like I do.
 
 ```csharp
 // Copyright (c) Microsoft Corporation. All rights reserved.
@@ -768,6 +782,7 @@ namespace MsalAuthInMauiBlazor.MsalClient
 ```
 
 Now, let's setup our *PCAWrapper.cs* to be injected into our Maui Blazor pages. Go to *MauiProgram.cs*, and replace the code with the following:
+ScottNote: Do this!
 
 ```csharp
 using Microsoft.AspNetCore.Components.WebView.Maui;
@@ -815,6 +830,7 @@ namespace MsalAuthInMauiBlazor
 ```
 
 Open *_Imports.razor*, and add the following:
+ScottNote: Do this!
 
 ```csharp
 @using Microsoft.Identity.Client 
@@ -823,6 +839,7 @@ Open *_Imports.razor*, and add the following:
 ```
 
 Before we can call our **PCAWrapper.cs** code to authenticate using **MSAL .NET**, we are going to need a place to store our access token, after successful authentication. Let's add a *Globals.cs* file with the following code:
+ScottNote: Do this!
 
 ```csharp
 namespace MsalAuthInMauiBlazor
@@ -837,6 +854,7 @@ namespace MsalAuthInMauiBlazor
 Now, we are ready to create log in, and log out buttons, and use the **PCAWrapper** code to authenticate using **MSAL .NET**.
 
 Open *MainLayout.razor*, and replace it's contents with the following code:
+ScottNote: Do this but make it my own!
 
 ```c#
 @using Microsoft.Extensions.Configuration
@@ -942,6 +960,7 @@ Open *MainLayout.razor*, and replace it's contents with the following code:
 ```
 
 Now, let's reuse the *WeatherForecastService.cs* service provided in the template, but modify the code to return the weather forecast data from our Secure Web API, rather than random generated data. Replace the code with the following:
+ScottNote: I have my own service already, thankyouverymuch.
 
 ```csharp
 using Microsoft.Extensions.Configuration;
@@ -1048,6 +1067,7 @@ And, that is it. Go ahead and run the application, you should be able to log in,
 ![image-20221009134337484](md-images/image-20221009134337484.png)
 
 #### Android Support
+ScottNote: Gonna have to learn all this too, but should have it working on windows for now.
 
 So far we have a **.NET MAUI Blazor** application that can authenticate to **Azure AD B2C**, get an access token, and call a secure Web API. Now, let's make a few small changes to be able to achieve the same thing on an **Android** device.
 
